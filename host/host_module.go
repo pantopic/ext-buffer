@@ -49,12 +49,14 @@ func (h *hostModule) Name() string {
 }
 
 func (h *hostModule) ContextCopy(dst, src context.Context) context.Context {
-	dst = context.WithValue(dst, ctxKeyMeta, get[*meta](src, ctxKeyMeta))
-	dst = context.WithValue(dst, ctxKeyBufCap, get[uint32](src, ctxKeyBufCap))
-	if v := src.Value(ctxKeyPool); v != nil {
-		dst = context.WithValue(dst, ctxKeyPool, v.(map[uint64]map[uint64][]byte))
-	} else {
-		dst = context.WithValue(dst, ctxKeyPool, make(map[uint64]map[uint64][]byte))
+	if v := src.Value(ctxKeyMeta); v != nil {
+		dst = context.WithValue(dst, ctxKeyMeta, v.(*meta))
+		dst = context.WithValue(dst, ctxKeyBufCap, v.(uint32))
+		if v := src.Value(ctxKeyPool); v != nil {
+			dst = context.WithValue(dst, ctxKeyPool, v.(map[uint64]map[uint64][]byte))
+		} else {
+			dst = context.WithValue(dst, ctxKeyPool, make(map[uint64]map[uint64][]byte))
+		}
 	}
 	return dst
 }
@@ -131,7 +133,11 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 
 // InitContext retrieves the meta page from the wasm module
 func (h *hostModule) InitContext(ctx context.Context, m api.Module) (context.Context, error) {
-	stack, err := m.ExportedFunction(`__buffer_pool`).Call(ctx)
+	fn := m.ExportedFunction(`__buffer_pool`)
+	if fn == nil {
+		return ctx, nil
+	}
+	stack, err := fn.Call(ctx)
 	if err != nil {
 		return ctx, err
 	}
