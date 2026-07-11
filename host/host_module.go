@@ -51,7 +51,7 @@ func (h *hostModule) Name() string {
 func (h *hostModule) ContextCopy(dst, src context.Context) context.Context {
 	if v := src.Value(ctxKeyMeta); v != nil {
 		dst = context.WithValue(dst, ctxKeyMeta, v.(*meta))
-		dst = context.WithValue(dst, ctxKeyBufCap, v.(uint32))
+		dst = context.WithValue(dst, ctxKeyBufCap, src.Value(ctxKeyBufCap).(uint32))
 		if v := src.Value(ctxKeyPool); v != nil {
 			dst = context.WithValue(dst, ctxKeyPool, v.(map[uint64]map[uint64][]byte))
 		} else {
