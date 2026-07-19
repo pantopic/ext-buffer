@@ -81,15 +81,6 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		},
 	} {
 		switch fn := fn.(type) {
-		case func(m map[uint64][]byte, id uint64, v []byte) bool:
-			register(name, func(ctx context.Context, mod api.Module, stack []uint64) {
-				meta := get[*meta](ctx, ctxKeyMeta)
-				errCode := uint32(0)
-				if !fn(h.getMap(ctx, mod, meta), getID(mod, meta), getBuf(mod, meta)) {
-					errCode = 1
-				}
-				writeUint32(mod, meta.ptrErrCode, errCode)
-			})
 		case func(m map[uint64][]byte, id uint64) []byte:
 			register(name, func(ctx context.Context, mod api.Module, stack []uint64) {
 				meta := get[*meta](ctx, ctxKeyMeta)
@@ -107,23 +98,23 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		}
 	}
 	builder = builder.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
-		bufcap := get[uint32](ctx, ctxKeyBufCap)
-		fn := func(m map[uint64][]byte, id uint64, v []byte) bool {
-			if _, ok := m[id]; !ok {
-				m[id] = []byte{}
-			}
-			n := binary.PutUvarint(scratch, uint64(len(v)))
-			if len(m[id])+len(v)+n > int(bufcap) {
-				return false
-			}
+		var (
+			bufcap  = get[uint32](ctx, ctxKeyBufCap)
+			meta    = get[*meta](ctx, ctxKeyMeta)
+			errCode = uint32(0)
+			m       = h.getMap(ctx, mod, meta)
+			id      = getID(mod, meta)
+			v       = getData(mod, api.DecodeU32(stack[0]), api.DecodeU32(stack[1]))
+		)
+		if _, ok := m[id]; !ok {
+			m[id] = []byte{}
+		}
+		n := binary.PutUvarint(scratch, uint64(len(v)))
+		if len(m[id])+len(v)+n > int(bufcap) {
+			errCode = 1
+		} else {
 			m[id] = append(m[id], scratch[:n]...)
 			m[id] = append(m[id], v...)
-			return true
-		}
-		meta := get[*meta](ctx, ctxKeyMeta)
-		errCode := uint32(0)
-		if !fn(h.getMap(ctx, mod, meta), getID(mod, meta), getData(mod, api.DecodeU32(stack[0]), api.DecodeU32(stack[1]))) {
-			errCode = 1
 		}
 		writeUint32(mod, meta.ptrErrCode, errCode)
 	}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, nil).Export("__buffer_pool_multi_append")

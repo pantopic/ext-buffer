@@ -48,6 +48,9 @@ func (c MultiValue) Iter() iter.Seq[[]byte] {
 		for i := 0; i < int(bufLen); {
 			size, n := binary.Uvarint(buf[i:])
 			i += n
+			if size == 0 {
+				continue
+			}
 			if !yield(buf[i : i+int(size)]) {
 				return
 			}
