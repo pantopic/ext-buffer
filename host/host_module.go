@@ -63,8 +63,6 @@ func (h *hostModule) ContextCopy(dst, src context.Context) context.Context {
 
 func (h *hostModule) Stop() {}
 
-var scratch = make([]byte, 8)
-
 // Register instantiates the host module, making it available to all module instances in this runtime
 func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error) {
 	builder := r.NewHostModuleBuilder(Name)
@@ -109,12 +107,12 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		if _, ok := m[id]; !ok {
 			m[id] = []byte{}
 		}
+		var scratch = make([]byte, 8)
 		n := binary.PutUvarint(scratch, uint64(len(v)))
-		if len(m[id])+len(v)+n > int(bufcap) {
+		if len(m[id])+n+len(v) > int(bufcap) {
 			errCode = 1
 		} else {
-			m[id] = append(m[id], scratch[:n]...)
-			m[id] = append(m[id], v...)
+			m[id] = append(binary.AppendUvarint(m[id], uint64(len(v))), v...)
 		}
 		writeUint32(mod, meta.ptrErrCode, errCode)
 	}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, nil).Export("__buffer_pool_multi_append")
