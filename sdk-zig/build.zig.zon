@@ -1,0 +1,11 @@
+.{
+    .name = .wazero_buffer_pool_sdk,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0",
+    .fingerprint = 0xd1a31604bff5565e,
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "buffer_pool.zig",
+    },
+}
