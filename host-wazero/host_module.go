@@ -1,4 +1,4 @@
-package wazero_buffer_pool
+package wazero_buffer
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 )
 
 // Name is the name of this host module.
-const Name = "pantopic/wazero-buffer-pool"
+const Name = "pantopic/ext-buffer"
 
 var (
 	ctxKeyMeta   = Name + `/meta`
@@ -70,10 +70,10 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		builder = builder.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(fn), nil, nil).Export(name)
 	}
 	for name, fn := range map[string]any{
-		"__buffer_pool_multi_load": func(m map[uint64][]byte, id uint64) []byte {
+		"__buffer_multi_load": func(m map[uint64][]byte, id uint64) []byte {
 			return m[id]
 		},
-		"__buffer_pool_multi_reset": func(m map[uint64][]byte, id uint64) {
+		"__buffer_multi_reset": func(m map[uint64][]byte, id uint64) {
 			// TODO - pool buffers instead of deleting
 			delete(m, id)
 		},
@@ -115,14 +115,14 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 			m[id] = append(binary.AppendUvarint(m[id], uint64(len(v))), v...)
 		}
 		writeUint32(mod, meta.ptrErrCode, errCode)
-	}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, nil).Export("__buffer_pool_multi_append")
+	}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, nil).Export("__buffer_multi_append")
 	h.module, err = builder.Instantiate(ctx)
 	return
 }
 
 // InitContext retrieves the meta page from the wasm module
 func (h *hostModule) InitContext(ctx context.Context, m api.Module) (context.Context, error) {
-	fn := m.ExportedFunction(`__buffer_pool`)
+	fn := m.ExportedFunction(`__buffer`)
 	if fn == nil {
 		return ctx, nil
 	}

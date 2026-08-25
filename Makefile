@@ -7,11 +7,11 @@ wasm-zig:
 	@cp test-zig/zig-out/bin/test-zig.wasm host/test-zig.wasm
 
 test: wasm wasm-zig
-	@cd host && go test . -v
+	@cd host-wazero && go test . -v
 
 cover:
 	@mkdir -p _dist
-	@cd host && go test . -coverprofile=../_dist/coverage.out -v
+	@cd host-wazero && go test . -coverprofile=../_dist/coverage.out -v
 	@go tool cover -html=_dist/coverage.out -o _dist/coverage.html
 
 cloc:

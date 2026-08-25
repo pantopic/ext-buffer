@@ -1,26 +1,18 @@
-const buf_cap: u32 = 1536 << 10; // 1.5 MiB
-
 var id: u64 = 0;
 var set_id: u64 = 0;
-var buf_cap_var: u32 = buf_cap;
-var buf_len: u32 = 0;
-var buf: [buf_cap]u8 = undefined;
 var err_code: u32 = 0;
 var meta: [6]u32 = undefined;
 
 export fn __buffer_pool() u32 {
     meta[0] = @intFromPtr(&id);
     meta[1] = @intFromPtr(&set_id);
-    meta[2] = @intFromPtr(&buf_cap_var);
-    meta[3] = @intFromPtr(&buf_len);
-    meta[4] = @intFromPtr(&buf);
     meta[5] = @intFromPtr(&err_code);
     return @intFromPtr(&meta);
 }
 
-extern "pantopic/wazero-buffer-pool" fn __buffer_pool_multi_append(ptr: u32, len: u32) void;
-extern "pantopic/wazero-buffer-pool" fn __buffer_pool_multi_load() void;
-extern "pantopic/wazero-buffer-pool" fn __buffer_pool_multi_reset() void;
+extern "pantopic/ext-buffer" fn __buffer_multi_append(ptr: u32, len: u32) void;
+extern "pantopic/ext-buffer" fn __buffer_multi_load() void;
+extern "pantopic/ext-buffer" fn __buffer_multi_reset() void;
 
 pub const Options = struct {
     size_limit: u64 = 0,
@@ -50,33 +42,34 @@ pub const MultiValue = struct {
         }
         id = self.id;
         set_id = self.set_id;
-        __buffer_pool_multi_append(@intFromPtr(b.ptr), @intCast(b.len));
+        __buffer_multi_append(@intFromPtr(b.ptr), @intCast(b.len));
         return err_code == 0;
     }
 
-    pub fn iterator(self: MultiValue) Iterator {
+    pub fn iterator(self: MultiValue, b: []const u8) Iterator {
         id = self.id;
         set_id = self.set_id;
-        __buffer_pool_multi_load();
-        return .{};
+        __buffer_multi_load(@intFromPtr(b.ptr), @intCast(b.len));
+        return .{ .buf = b };
     }
 
     pub fn reset(self: MultiValue) void {
         set_id = self.set_id;
         id = self.id;
-        __buffer_pool_multi_reset();
+        __buffer_multi_reset();
     }
 };
 
 pub const Iterator = struct {
     pos: usize = 0,
+    buf: []const u8 = undefined,
 
     pub fn next(self: *Iterator) ?[]const u8 {
-        while (self.pos < buf_len) {
+        while (self.pos < self.buf.len) {
             var size: u64 = 0;
             var shift: u6 = 0;
-            while (self.pos < buf_len) {
-                const c = buf[self.pos];
+            while (self.pos < self.buf.len) {
+                const c = self.buf[self.pos];
                 self.pos += 1;
                 size |= @as(u64, c & 0x7f) << shift;
                 if (c < 0x80) break;
@@ -85,7 +78,7 @@ pub const Iterator = struct {
             if (size == 0) continue;
             const start = self.pos;
             self.pos += @intCast(size);
-            return buf[start..self.pos];
+            return self.buf[start..self.pos];
         }
         return null;
     }

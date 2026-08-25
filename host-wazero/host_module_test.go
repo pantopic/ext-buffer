@@ -1,6 +1,4 @@
-package wazero_buffer_pool
-
-import (
+package wazero_buffer
 	"context"
 	_ "embed"
 	"os"

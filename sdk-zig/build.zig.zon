@@ -6,6 +6,6 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "buffer_pool.zig",
+        "buffer.zig",
     },
 }
