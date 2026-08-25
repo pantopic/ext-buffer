@@ -1,3 +1,3 @@
-module github.com/pantopic/wazero-buffer-pool/sdk-go
+module github.com/pantopic/wazero-buffer/sdk-go
 
 go 1.25.7

@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/binary"
 
-	"github.com/pantopic/wazero-buffer-pool/sdk-go"
+	"github.com/pantopic/ext-buffer/sdk-go"
 )
 
 const (
@@ -11,21 +11,23 @@ const (
 )
 
 var (
-	testMulti buffer_pool.MultiValueSet
+	testMultiValueSet buffer.MultiValueSet
+
+	buf = make([]byte, 1536<<10) // 1.5 MiB
 )
 
 func main() {
-	testMulti = buffer_pool.NewMultiValueSet(BUFFER_POOL_MULTI_SET_1)
+	testMultiValueSet = buffer.NewMultiValueSet(BUFFER_POOL_MULTI_SET_1)
 }
 
 //export testMultiSetAppend
 func testMultiSetAppend(id, v uint64) {
-	testMulti.Find(id).Append(binary.LittleEndian.AppendUint64([]byte{}, v))
+	testMultiValueSet.Find(id).Append(binary.LittleEndian.AppendUint64([]byte{}, v))
 }
 
 //export testMultiSetIter
 func testMultiSetIter(id uint64) (total uint64) {
-	for item := range testMulti.Find(id).Iter() {
+	for item := range testMultiValueSet.Find(id).Iter(buf) {
 		total += binary.LittleEndian.Uint64(item)
 	}
 	return
@@ -33,5 +35,5 @@ func testMultiSetIter(id uint64) (total uint64) {
 
 //export testMultiSetReset
 func testMultiSetReset(id uint64) {
-	testMulti.Find(id).Reset()
+	testMultiValueSet.Find(id).Reset()
 }

@@ -1,6 +1,4 @@
-package wazero_buffer_pool
-
-import (
+package wazero_buffer
 	"context"
 	_ "embed"
 	"os"
@@ -10,10 +8,27 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
-//go:embed test\.wasm
-var testwasm []byte
+//go:embed test.wasm
+var testwasmGo []byte
+
+//go:embed test-zig.wasm
+var testwasmZig []byte
 
 func TestModule(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		wasm []byte
+	}{
+		{`go`, testwasmGo},
+		{`zig`, testwasmZig},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testModule(t, tc.wasm)
+		})
+	}
+}
+
+func testModule(t *testing.T, testwasm []byte) {
 	var (
 		ctx = context.Background()
 	)

@@ -1,4 +1,4 @@
-package buffer_pool
+package buffer
 
 type Option func(*MultiValueSet)
 
