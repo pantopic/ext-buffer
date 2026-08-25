@@ -35,17 +35,21 @@ type MultiValue struct {
 
 func (c MultiValue) Append(b []byte) bool {
 	id = c.id
+	size = c.size
 	setID = c.setID
 	_multi_append(uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
 	return errCode == 0
 }
 
 func (c MultiValue) Iter(b []byte) iter.Seq[[]byte] {
+	if uint64(cap(b)) < c.size {
+		panic("Buffer too small")
+	}
 	id = c.id
 	setID = c.setID
-	_multi_load(uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+	length := _multi_load(uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
 	return func(yield func([]byte) bool) {
-		for i := 0; i < len(b); {
+		for i := 0; i < int(length); {
 			size, n := binary.Uvarint(b[i:])
 			i += n
 			if size == 0 {

@@ -2,8 +2,8 @@ package buffer
 
 type Option func(*MultiValueSet)
 
-func WithSizeLimit(size uint64) Option {
+func WithSizeLimit(size int) Option {
 	return func(m *MultiValueSet) {
-		m.size = size
+		m.size = uint64(size)
 	}
 }

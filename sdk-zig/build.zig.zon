@@ -1,8 +1,8 @@
 .{
-    .name = .wazero_buffer_pool_sdk,
+    .name = .ext_buffer_sdk,
     .version = "0.0.0",
     .minimum_zig_version = "0.16.0",
-    .fingerprint = 0xd1a31604bff5565e,
+    .fingerprint = 0xa1ffd4ffab41efa2,
     .paths = .{
         "build.zig",
         "build.zig.zon",

@@ -13,11 +13,12 @@ const (
 var (
 	testMultiValueSet buffer.MultiValueSet
 
-	buf = make([]byte, 1536<<10) // 1.5 MiB
+	bufCap = 1 << 10
+	buf    = make([]byte, bufCap)
 )
 
 func main() {
-	testMultiValueSet = buffer.NewMultiValueSet(BUFFER_POOL_MULTI_SET_1)
+	testMultiValueSet = buffer.NewMultiValueSet(BUFFER_POOL_MULTI_SET_1, buffer.WithSizeLimit(bufCap))
 }
 
 //export testMultiSetAppend
@@ -37,3 +38,9 @@ func testMultiSetIter(id uint64) (total uint64) {
 func testMultiSetReset(id uint64) {
 	testMultiValueSet.Find(id).Reset()
 }
+
+var (
+	_ = testMultiSetIter
+	_ = testMultiSetAppend
+	_ = testMultiSetReset
+)

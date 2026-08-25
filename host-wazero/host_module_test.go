@@ -1,5 +1,6 @@
 package wazero_buffer
-	"context"
+
+import (
 	_ "embed"
 	"os"
 	"testing"
@@ -29,14 +30,14 @@ func TestModule(t *testing.T) {
 }
 
 func testModule(t *testing.T, testwasm []byte) {
-	var (
-		ctx = context.Background()
-	)
+	ctx := t.Context()
 	r := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig())
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+	defer r.Close(ctx)
 
 	hostModule := New()
 	hostModule.Register(ctx, r)
+	defer hostModule.Stop()
 
 	compiled, err := r.CompileModule(ctx, testwasm)
 	if err != nil {
@@ -100,6 +101,4 @@ func testModule(t *testing.T, testwasm []byte) {
 			t.Fatalf("expected %d, got %d", 0, stack[0])
 		}
 	})
-
-	hostModule.Stop()
 }

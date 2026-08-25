@@ -14,17 +14,14 @@ import (
 const Name = "pantopic/ext-buffer"
 
 var (
-	ctxKeyMeta   = Name + `/meta`
-	ctxKeyPool   = Name + `/pool`
-	ctxKeyBufCap = Name + `/buf-cap`
+	ctxKeyMeta = Name + `/meta`
+	ctxKeyPool = Name + `/pool`
 )
 
 type meta struct {
 	ptrID      uint32
+	ptrSize    uint32
 	ptrSetID   uint32
-	ptrBufCap  uint32
-	ptrBufLen  uint32
-	ptrBuf     uint32
 	ptrErrCode uint32
 }
 
@@ -51,7 +48,6 @@ func (h *hostModule) Name() string {
 func (h *hostModule) ContextCopy(dst, src context.Context) context.Context {
 	if v := src.Value(ctxKeyMeta); v != nil {
 		dst = context.WithValue(dst, ctxKeyMeta, v.(*meta))
-		dst = context.WithValue(dst, ctxKeyBufCap, src.Value(ctxKeyBufCap).(uint32))
 		if v := src.Value(ctxKeyPool); v != nil {
 			dst = context.WithValue(dst, ctxKeyPool, v.(map[uint64]map[uint64][]byte))
 		} else {
@@ -66,56 +62,50 @@ func (h *hostModule) Stop() {}
 // Register instantiates the host module, making it available to all module instances in this runtime
 func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error) {
 	builder := r.NewHostModuleBuilder(Name)
-	register := func(name string, fn func(ctx context.Context, m api.Module, stack []uint64)) {
-		builder = builder.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(fn), nil, nil).Export(name)
+	register := func(name string, in, out []api.ValueType, fn func(ctx context.Context, m api.Module, stack []uint64)) {
+		builder = builder.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(fn), in, out).Export(name)
 	}
-	for name, fn := range map[string]any{
-		"__buffer_multi_load": func(m map[uint64][]byte, id uint64) []byte {
-			return m[id]
-		},
-		"__buffer_multi_reset": func(m map[uint64][]byte, id uint64) {
-			// TODO - pool buffers instead of deleting
+	register("__buffer_multi_reset", nil, nil,
+		func(ctx context.Context, mod api.Module, stack []uint64) {
+			meta := get[*meta](ctx, ctxKeyMeta)
+			m := h.getMap(ctx, mod, meta)
+			id := getID(mod, meta)
 			delete(m, id)
-		},
-	} {
-		switch fn := fn.(type) {
-		case func(m map[uint64][]byte, id uint64) []byte:
-			register(name, func(ctx context.Context, mod api.Module, stack []uint64) {
-				meta := get[*meta](ctx, ctxKeyMeta)
-				b := fn(h.getMap(ctx, mod, meta), getID(mod, meta))
-				copy(buf(mod, meta)[:len(b)], b)
-				writeUint32(mod, meta.ptrBufLen, uint32(len(b)))
-			})
-		case func(m map[uint64][]byte, id uint64):
-			register(name, func(ctx context.Context, mod api.Module, stack []uint64) {
-				meta := get[*meta](ctx, ctxKeyMeta)
-				fn(h.getMap(ctx, mod, meta), getID(mod, meta))
-			})
-		default:
-			log.Panicf("Method signature implementation missing: %#v", fn)
-		}
-	}
-	builder = builder.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
-		var (
-			bufcap  = get[uint32](ctx, ctxKeyBufCap)
-			meta    = get[*meta](ctx, ctxKeyMeta)
-			errCode = uint32(0)
-			m       = h.getMap(ctx, mod, meta)
-			id      = getID(mod, meta)
-			v       = getData(mod, api.DecodeU32(stack[0]), api.DecodeU32(stack[1]))
-		)
-		if _, ok := m[id]; !ok {
-			m[id] = []byte{}
-		}
-		var scratch = make([]byte, 8)
-		n := binary.PutUvarint(scratch, uint64(len(v)))
-		if len(m[id])+n+len(v) > int(bufcap) {
-			errCode = 1
-		} else {
-			m[id] = append(binary.AppendUvarint(m[id], uint64(len(v))), v...)
-		}
-		writeUint32(mod, meta.ptrErrCode, errCode)
-	}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, nil).Export("__buffer_multi_append")
+		})
+	register("__buffer_multi_append", []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, nil,
+		func(ctx context.Context, mod api.Module, stack []uint64) {
+			meta := get[*meta](ctx, ctxKeyMeta)
+			errCode := uint32(0)
+			m := h.getMap(ctx, mod, meta)
+			id := getID(mod, meta)
+			v := getBuf(mod, api.DecodeU32(stack[0]), api.DecodeU32(stack[1]))
+			if _, ok := m[id]; !ok {
+				m[id] = make([]byte, 0, getSize(mod, meta))
+			}
+			var scratch = make([]byte, 8)
+			n := binary.PutUvarint(scratch, uint64(len(v)))
+			if len(m[id])+n+len(v) > cap(m[id]) {
+				errCode = 1
+			} else {
+				m[id] = append(binary.AppendUvarint(m[id], uint64(len(v))), v...)
+			}
+			writeUint32(mod, meta.ptrErrCode, errCode)
+		})
+	register("__buffer_multi_load", []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, []api.ValueType{api.ValueTypeI32},
+		func(ctx context.Context, mod api.Module, stack []uint64) {
+			meta := get[*meta](ctx, ctxKeyMeta)
+			m := h.getMap(ctx, mod, meta)
+			id := getID(mod, meta)
+			buf := getBuf(mod, api.DecodeU32(stack[0]), api.DecodeU32(stack[1]))
+			if len(buf) < len(m[id]) {
+				writeUint32(mod, meta.ptrErrCode, 2)
+				stack[0] = 0
+				return
+			}
+			copy(buf[:len(m[id])], m[id])
+			writeUint32(mod, meta.ptrErrCode, 0)
+			stack[0] = api.EncodeU32(uint32(len(m[id])))
+		})
 	h.module, err = builder.Instantiate(ctx)
 	return
 }
@@ -134,15 +124,12 @@ func (h *hostModule) InitContext(ctx context.Context, m api.Module) (context.Con
 	ptr := uint32(stack[0])
 	for i, v := range []*uint32{
 		&meta.ptrID,
+		&meta.ptrSize,
 		&meta.ptrSetID,
-		&meta.ptrBufCap,
-		&meta.ptrBufLen,
-		&meta.ptrBuf,
 		&meta.ptrErrCode,
 	} {
 		*v = readUint32(m, ptr+uint32(4*i))
 	}
-	ctx = context.WithValue(ctx, ctxKeyBufCap, readUint32(m, meta.ptrBufCap))
 	return context.WithValue(ctx, ctxKeyMeta, meta), nil
 }
 
@@ -166,24 +153,16 @@ func getID(mod api.Module, meta *meta) uint64 {
 	return readUint64(mod, meta.ptrID)
 }
 
-func getBuf(mod api.Module, meta *meta) []byte {
-	return read(mod, meta.ptrBuf, meta.ptrBufLen, meta.ptrBufCap)
+func getSize(mod api.Module, meta *meta) uint64 {
+	return readUint64(mod, meta.ptrSize)
 }
 
-func getData(mod api.Module, ptrBuf uint32, bufLen uint32) []byte {
+func getBuf(mod api.Module, ptrBuf uint32, bufLen uint32) []byte {
 	buf, ok := mod.Memory().Read(ptrBuf, bufLen)
 	if !ok {
 		log.Panicf("Memory.Read(%d, %d) out of range", ptrBuf, bufLen)
 	}
 	return buf
-}
-
-func getBufCopy(mod api.Module, meta *meta) []byte {
-	return append([]byte(nil), getBuf(mod, meta)...)
-}
-
-func buf(m api.Module, meta *meta) []byte {
-	return read(m, meta.ptrBuf, 0, meta.ptrBufCap)
 }
 
 func get[T any](ctx context.Context, key string) T {
