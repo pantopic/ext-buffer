@@ -47,9 +47,11 @@ func (c MultiValue) Iter(b []byte) iter.Seq[[]byte] {
 	}
 	id = c.id
 	setID = c.setID
-	length := _multi_load(uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+	length := _multi_load(uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(cap(b)))
+	println(`Iter`, length, cap(b))
+	b = b[:length]
 	return func(yield func([]byte) bool) {
-		for i := 0; i < int(length); {
+		for i := 0; i < len(b); {
 			size, n := binary.Uvarint(b[i:])
 			i += n
 			if size == 0 {

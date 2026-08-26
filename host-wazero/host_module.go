@@ -97,7 +97,7 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 			m := h.getMap(ctx, mod, meta)
 			id := getID(mod, meta)
 			buf := getBuf(mod, api.DecodeU32(stack[0]), api.DecodeU32(stack[1]))
-			if len(buf) < len(m[id]) {
+			if cap(buf) < len(m[id]) {
 				writeUint32(mod, meta.ptrErrCode, 2)
 				stack[0] = 0
 				return
