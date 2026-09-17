@@ -4,7 +4,7 @@
     .minimum_zig_version = "0.16.0",
     .fingerprint = 0xb8b3cc46f1abe68e,
     .dependencies = .{
-        .wazero_buffer_pool_sdk = .{
+        .wazero_buffer_sdk = .{
             .path = "../sdk-zig",
         },
     },

@@ -12,8 +12,6 @@ const (
 
 var (
 	testMultiValueSet buffer.MultiValueSet
-
-	buf = make([]byte, 1536<<10) // 1.5 MiB
 )
 
 func main() {
@@ -27,7 +25,7 @@ func testMultiSetAppend(id, v uint64) {
 
 //export testMultiSetIter
 func testMultiSetIter(id uint64) (total uint64) {
-	for item := range testMultiValueSet.Find(id).Iter(buf) {
+	for item := range testMultiValueSet.Find(id).Iter() {
 		total += binary.LittleEndian.Uint64(item)
 	}
 	return

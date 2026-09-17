@@ -1,4 +1,6 @@
 package wazero_buffer
+
+import (
 	"context"
 	_ "embed"
 	"os"

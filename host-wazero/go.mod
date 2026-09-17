@@ -1,4 +1,4 @@
-module github.com/pantopic/ext-buffer-pool/host-wazero
+module github.com/pantopic/ext-buffer/host-wazero
 
 go 1.25.7
 

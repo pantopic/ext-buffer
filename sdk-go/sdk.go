@@ -40,18 +40,18 @@ func (c MultiValue) Append(b []byte) bool {
 	return errCode == 0
 }
 
-func (c MultiValue) Iter(b []byte) iter.Seq[[]byte] {
+func (c MultiValue) Iter() iter.Seq[[]byte] {
 	id = c.id
 	setID = c.setID
-	_multi_load(uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+	_multi_load()
 	return func(yield func([]byte) bool) {
-		for i := 0; i < len(b); {
-			size, n := binary.Uvarint(b[i:])
+		for i := 0; i < int(bufLen); {
+			size, n := binary.Uvarint(buf[i:])
 			i += n
 			if size == 0 {
 				continue
 			}
-			if !yield(b[i : i+int(size)]) {
+			if !yield(buf[i : i+int(size)]) {
 				return
 			}
 			i += int(size)

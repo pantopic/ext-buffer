@@ -1,18 +1,4 @@
-var id: u64 = 0;
-var set_id: u64 = 0;
-var err_code: u32 = 0;
-var meta: [6]u32 = undefined;
-
-export fn __buffer_pool() u32 {
-    meta[0] = @intFromPtr(&id);
-    meta[1] = @intFromPtr(&set_id);
-    meta[5] = @intFromPtr(&err_code);
-    return @intFromPtr(&meta);
-}
-
-extern "pantopic/ext-buffer" fn __buffer_multi_append(ptr: u32, len: u32) void;
-extern "pantopic/ext-buffer" fn __buffer_multi_load() void;
-extern "pantopic/ext-buffer" fn __buffer_multi_reset() void;
+const abi = @import("abi.zig");
 
 pub const Options = struct {
     size_limit: u64 = 0,
@@ -40,23 +26,23 @@ pub const MultiValue = struct {
         if (b.len == 0) {
             return true;
         }
-        id = self.id;
-        set_id = self.set_id;
-        __buffer_multi_append(@intFromPtr(b.ptr), @intCast(b.len));
-        return err_code == 0;
+        abi.id = self.id;
+        abi.set_id = self.set_id;
+        abi.__buffer_multi_append(@intFromPtr(b.ptr), @intCast(b.len));
+        return abi.err_code == 0;
     }
 
-    pub fn iterator(self: MultiValue, b: []const u8) Iterator {
-        id = self.id;
-        set_id = self.set_id;
-        __buffer_multi_load(@intFromPtr(b.ptr), @intCast(b.len));
-        return .{ .buf = b };
+    pub fn iterator(self: MultiValue) Iterator {
+        abi.id = self.id;
+        abi.set_id = self.set_id;
+        abi.__buffer_multi_load();
+        return .{ .buf = abi.buf[0..abi.buf_len] };
     }
 
     pub fn reset(self: MultiValue) void {
-        set_id = self.set_id;
-        id = self.id;
-        __buffer_multi_reset();
+        abi.set_id = self.set_id;
+        abi.id = self.id;
+        abi.__buffer_multi_reset();
     }
 };
 

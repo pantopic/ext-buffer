@@ -1,9 +1,9 @@
 const std = @import("std");
-const buffer_pool = @import("buffer_pool");
+const buffer = @import("buffer");
 
 const BUFFER_POOL_MULTI_SET_1 = 0;
 
-const test_multi = buffer_pool.MultiValueSet.init(BUFFER_POOL_MULTI_SET_1, .{});
+const test_multi = buffer.MultiValueSet.init(BUFFER_POOL_MULTI_SET_1, .{});
 
 export fn _initialize() void {}
 

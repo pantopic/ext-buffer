@@ -14,9 +14,8 @@ import (
 const Name = "pantopic/ext-buffer"
 
 var (
-	ctxKeyMeta   = Name + `/meta`
-	ctxKeyPool   = Name + `/pool`
-	ctxKeyBufCap = Name + `/buf-cap`
+	ctxKeyMeta = Name + `/meta`
+	ctxKeyPool = Name + `/pool`
 )
 
 type meta struct {
@@ -51,7 +50,6 @@ func (h *hostModule) Name() string {
 func (h *hostModule) ContextCopy(dst, src context.Context) context.Context {
 	if v := src.Value(ctxKeyMeta); v != nil {
 		dst = context.WithValue(dst, ctxKeyMeta, v.(*meta))
-		dst = context.WithValue(dst, ctxKeyBufCap, src.Value(ctxKeyBufCap).(uint32))
 		if v := src.Value(ctxKeyPool); v != nil {
 			dst = context.WithValue(dst, ctxKeyPool, v.(map[uint64]map[uint64][]byte))
 		} else {
@@ -97,7 +95,6 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 	}
 	builder = builder.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
 		var (
-			bufcap  = get[uint32](ctx, ctxKeyBufCap)
 			meta    = get[*meta](ctx, ctxKeyMeta)
 			errCode = uint32(0)
 			m       = h.getMap(ctx, mod, meta)
@@ -109,7 +106,7 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		}
 		var scratch = make([]byte, 8)
 		n := binary.PutUvarint(scratch, uint64(len(v)))
-		if len(m[id])+n+len(v) > int(bufcap) {
+		if len(m[id])+n+len(v) > int(readUint32(mod, meta.ptrBufCap)) {
 			errCode = 1
 		} else {
 			m[id] = append(binary.AppendUvarint(m[id], uint64(len(v))), v...)
@@ -124,6 +121,7 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 func (h *hostModule) InitContext(ctx context.Context, m api.Module) (context.Context, error) {
 	fn := m.ExportedFunction(`__buffer`)
 	if fn == nil {
+		log.Panicf("Exported function __buffer not found")
 		return ctx, nil
 	}
 	stack, err := fn.Call(ctx)
@@ -142,7 +140,6 @@ func (h *hostModule) InitContext(ctx context.Context, m api.Module) (context.Con
 	} {
 		*v = readUint32(m, ptr+uint32(4*i))
 	}
-	ctx = context.WithValue(ctx, ctxKeyBufCap, readUint32(m, meta.ptrBufCap))
 	return context.WithValue(ctx, ctxKeyMeta, meta), nil
 }
 
