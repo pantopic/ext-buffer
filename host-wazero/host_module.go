@@ -121,7 +121,6 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 func (h *hostModule) InitContext(ctx context.Context, m api.Module) (context.Context, error) {
 	fn := m.ExportedFunction(`__buffer`)
 	if fn == nil {
-		log.Panicf("Exported function __buffer not found")
 		return ctx, nil
 	}
 	stack, err := fn.Call(ctx)
