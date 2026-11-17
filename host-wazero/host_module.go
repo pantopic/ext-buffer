@@ -29,8 +29,6 @@ type meta struct {
 
 type hostModule struct {
 	sync.RWMutex
-
-	module api.Module
 }
 
 type Option func(*hostModule)
@@ -113,7 +111,7 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		}
 		writeUint32(mod, meta.ptrErrCode, errCode)
 	}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, nil).Export("__buffer_multi_append")
-	h.module, err = builder.Instantiate(ctx)
+	_, err = builder.Instantiate(ctx)
 	return
 }
 
